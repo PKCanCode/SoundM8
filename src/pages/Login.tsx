@@ -1,15 +1,11 @@
-import { useNavigate } from "react-router-dom";
 import { SpotifyButton } from "@/components/SpotifyButton";
 import { Music2, Shuffle, Radio } from "lucide-react";
+import { getSpotifyAuthUrl } from "@/services/spotify";
 
 const Login = () => {
-  const navigate = useNavigate();
-
   const handleLogin = () => {
-    // TODO: OAuth implementation
-    console.log("Login with Spotify clicked");
-    // Simulate successful login
-    navigate("/playlist-builder");
+    const authUrl = getSpotifyAuthUrl();
+    window.location.href = authUrl;
   };
 
   return (

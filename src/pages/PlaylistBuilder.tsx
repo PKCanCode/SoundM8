@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { SpotifyButton } from "@/components/SpotifyButton";
 import { TrackCard } from "@/components/TrackCard";
+import { MultiSelectInput } from "@/components/MultiSelectInput";
 import { useToast } from "@/hooks/use-toast";
 import { Music, Sparkles, Save } from "lucide-react";
+import { searchArtists, extractAccessTokenFromUrl, getAccessToken } from "@/services/spotify";
 
 // Mock data for demonstration
 const mockTracks = [
@@ -25,29 +25,61 @@ interface Track {
   albumCover: string;
 }
 
-const popularGenres = [
-  "pop", "rock", "hip hop", "jazz", "electronic", "r&b", "country", "classical", 
-  "reggae", "blues", "folk", "punk", "metal", "alternative", "indie"
-];
+interface Option {
+  id: string;
+  name: string;
+  image?: string;
+}
 
-const popularArtists = [
-  "Drake", "Taylor Swift", "The Weeknd", "Ariana Grande", "Ed Sheeran", 
-  "Billie Eilish", "Post Malone", "Dua Lipa", "Harry Styles", "Olivia Rodrigo",
-  "Bad Bunny", "The Beatles", "Beyoncé", "Kanye West", "Adele"
+const popularGenres: Option[] = [
+  { id: "pop", name: "Pop" },
+  { id: "rock", name: "Rock" },
+  { id: "hip-hop", name: "Hip Hop" },
+  { id: "jazz", name: "Jazz" },
+  { id: "electronic", name: "Electronic" },
+  { id: "rnb", name: "R&B" },
+  { id: "country", name: "Country" },
+  { id: "classical", name: "Classical" },
+  { id: "reggae", name: "Reggae" },
+  { id: "blues", name: "Blues" },
+  { id: "folk", name: "Folk" },
+  { id: "punk", name: "Punk" },
+  { id: "metal", name: "Metal" },
+  { id: "alternative", name: "Alternative" },
+  { id: "indie", name: "Indie" }
 ];
 
 const PlaylistBuilder = () => {
-  const [genre, setGenre] = useState("");
-  const [artist, setArtist] = useState("");
+  const [selectedGenres, setSelectedGenres] = useState<Option[]>([]);
+  const [selectedArtists, setSelectedArtists] = useState<Option[]>([]);
   const [playlistLength, setPlaylistLength] = useState([10]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Check for access token in URL on component mount
+    const token = extractAccessTokenFromUrl();
+    if (token) {
+      toast({
+        title: "Connected to Spotify!",
+        description: "You can now search for artists and save playlists.",
+      });
+    }
+  }, [toast]);
+
+  const handleArtistSearch = async (query: string) => {
+    return await searchArtists(query);
+  };
+
   const fetchRecommendations = async () => {
-    // TODO: Implement Spotify API call
+    // TODO: Implement Spotify recommendations API call
     setIsGenerating(true);
-    console.log("Fetching recommendations:", { genre, artist, playlistLength: playlistLength[0] });
+    console.log("Fetching recommendations:", { 
+      genres: selectedGenres.map(g => g.name), 
+      artists: selectedArtists.map(a => a.name), 
+      playlistLength: playlistLength[0] 
+    });
     
     // Simulate API call delay
     setTimeout(() => {
@@ -60,14 +92,33 @@ const PlaylistBuilder = () => {
     }, 2000);
   };
 
-  const savePlaylist = () => {
-    // TODO: Save playlist to Spotify
-    console.log("Saving playlist with tracks:", tracks);
-    toast({
-      title: "Playlist saved!",
-      description: "Your playlist has been saved to Spotify.",
-      duration: 3000,
-    });
+  const savePlaylist = async () => {
+    if (!getAccessToken()) {
+      toast({
+        title: "Not connected to Spotify",
+        description: "Please connect to Spotify first to save playlists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // TODO: Implement actual Spotify playlist creation
+      console.log("Saving playlist with tracks:", tracks);
+      
+      toast({
+        title: "Playlist saved!",
+        description: "Your playlist has been saved to Spotify.",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error saving playlist:", error);
+      toast({
+        title: "Error saving playlist",
+        description: "There was an error saving your playlist. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const removeTrack = (id: number) => {
@@ -97,40 +148,28 @@ const PlaylistBuilder = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="genre" className="text-sm font-medium">
-                  Favorite Genre
+                <Label htmlFor="genres" className="text-sm font-medium">
+                  Favorite Genres
                 </Label>
-                <Select value={genre} onValueChange={setGenre}>
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Select a genre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {popularGenres.map((genreOption) => (
-                      <SelectItem key={genreOption} value={genreOption}>
-                        {genreOption}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectInput
+                  value={selectedGenres}
+                  onChange={setSelectedGenres}
+                  options={popularGenres}
+                  placeholder="Type to add genres..."
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="artist" className="text-sm font-medium">
-                  Favorite Artist
+                <Label htmlFor="artists" className="text-sm font-medium">
+                  Favorite Artists
                 </Label>
-                <Select value={artist} onValueChange={setArtist}>
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Select an artist" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {popularArtists.map((artistOption) => (
-                      <SelectItem key={artistOption} value={artistOption}>
-                        {artistOption}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MultiSelectInput
+                  value={selectedArtists}
+                  onChange={setSelectedArtists}
+                  onSearch={handleArtistSearch}
+                  placeholder="Type to search artists..."
+                />
               </div>
             </div>
             <div className="space-y-3">
@@ -154,7 +193,7 @@ const PlaylistBuilder = () => {
             </div>
             <SpotifyButton 
               onClick={fetchRecommendations}
-              disabled={isGenerating || !genre}
+              disabled={isGenerating || selectedGenres.length === 0}
               className="w-full"
             >
               {isGenerating ? "Generating..." : "Generate Songs"}

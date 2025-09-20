@@ -28,7 +28,7 @@ export const SpotifyButton = ({
         "transform transition-all duration-300 hover:scale-105",
         "shadow-lg hover:shadow-spotify-glow",
         "border border-spotify-green/20",
-        variant === "outline" && "bg-spotify-green/10 border-2 border-spotify-green text-spotify-green hover:bg-spotify-green hover:text-background shadow-lg shadow-spotify-green/20",
+        variant === "outline" && "bg-transparent border-2 border-spotify-green text-foreground hover:bg-spotify-green/10 hover:border-spotify-green/80 shadow-lg shadow-spotify-green/20",
         className
       )}
     >

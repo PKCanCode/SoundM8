@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { SpotifyButton } from "@/components/SpotifyButton";
 import { TrackCard } from "@/components/TrackCard";
 import { useToast } from "@/hooks/use-toast";
@@ -23,10 +25,21 @@ interface Track {
   albumCover: string;
 }
 
+const popularGenres = [
+  "pop", "rock", "hip hop", "jazz", "electronic", "r&b", "country", "classical", 
+  "reggae", "blues", "folk", "punk", "metal", "alternative", "indie"
+];
+
+const popularArtists = [
+  "Drake", "Taylor Swift", "The Weeknd", "Ariana Grande", "Ed Sheeran", 
+  "Billie Eilish", "Post Malone", "Dua Lipa", "Harry Styles", "Olivia Rodrigo",
+  "Bad Bunny", "The Beatles", "Beyoncé", "Kanye West", "Adele"
+];
+
 const PlaylistBuilder = () => {
   const [genre, setGenre] = useState("");
   const [artist, setArtist] = useState("");
-  const [playlistLength, setPlaylistLength] = useState(10);
+  const [playlistLength, setPlaylistLength] = useState([10]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
@@ -34,15 +47,15 @@ const PlaylistBuilder = () => {
   const fetchRecommendations = async () => {
     // TODO: Implement Spotify API call
     setIsGenerating(true);
-    console.log("Fetching recommendations:", { genre, artist, playlistLength });
+    console.log("Fetching recommendations:", { genre, artist, playlistLength: playlistLength[0] });
     
     // Simulate API call delay
     setTimeout(() => {
-      setTracks(mockTracks.slice(0, playlistLength));
+      setTracks(mockTracks.slice(0, playlistLength[0]));
       setIsGenerating(false);
       toast({
         title: "Songs generated!",
-        description: `Found ${playlistLength} perfect tracks for you.`,
+        description: `Found ${playlistLength[0]} perfect tracks for you.`,
       });
     }, 2000);
   };
@@ -89,41 +102,52 @@ const PlaylistBuilder = () => {
                 <Label htmlFor="genre" className="text-sm font-medium">
                   Favorite Genre
                 </Label>
-                <Input
-                  id="genre"
-                  placeholder="pop, rock, hip hop"
-                  value={genre}
-                  onChange={(e) => setGenre(e.target.value)}
-                  className="bg-input border-border"
-                />
+                <Select value={genre} onValueChange={setGenre}>
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder="Select a genre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {popularGenres.map((genreOption) => (
+                      <SelectItem key={genreOption} value={genreOption}>
+                        {genreOption}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="artist" className="text-sm font-medium">
                   Favorite Artist
                 </Label>
-                <Input
-                  id="artist"
-                  placeholder="Drake, Taylor Swift, etc."
-                  value={artist}
-                  onChange={(e) => setArtist(e.target.value)}
-                  className="bg-input border-border"
-                />
+                <Select value={artist} onValueChange={setArtist}>
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder="Select an artist" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {popularArtists.map((artistOption) => (
+                      <SelectItem key={artistOption} value={artistOption}>
+                        {artistOption}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="length" className="text-sm font-medium">
-                Playlist Length: {playlistLength} songs
+                Playlist Length: {playlistLength[0]} songs
               </Label>
-              <Input
-                id="length"
-                type="range"
-                min={5}
-                max={50}
-                value={playlistLength}
-                onChange={(e) => setPlaylistLength(Number(e.target.value))}
-                className="bg-input border-border"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="px-2">
+                <Slider
+                  value={playlistLength}
+                  onValueChange={setPlaylistLength}
+                  max={50}
+                  min={5}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground px-2">
                 <span>5 songs</span>
                 <span>50 songs</span>
               </div>

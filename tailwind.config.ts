@@ -47,6 +47,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Spotify-specific colors
+        spotify: {
+          green: "hsl(var(--spotify-green))",
+          "green-hover": "hsl(var(--spotify-green-hover))",
+        },
+        "track-hover": "hsl(var(--track-hover))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -84,6 +90,9 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      boxShadow: {
+        "spotify-glow": "var(--shadow-glow)",
       },
     },
   },

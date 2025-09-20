@@ -41,7 +41,7 @@ def create_playlist():
         return redirect('/')
 
 
-    sp = spotipy.Spotify(auth=token_info['access_token'])
+    sp = Spotify(auth=token_info['access_token'])
 
         # Get current user ID
     user_id = sp.current_user()['id']
@@ -58,14 +58,14 @@ def create_playlist():
         # Add tracks to playlist
     track_uris = [track['uri'] for track in recs['tracks']]
     sp.playlist_add_items(playlist['id'], track_uris)
-
+    
     return f"Playlist created! Check your Spotify account 🎉"
 
 
 @app.route('/modify_playlist/<playlist_id>/<action>/<track_uri>')
 def modify_playlist(playlist_id, action, track_uri):
     token_info = session.get('token_info', None)
-    sp = spotipy.Spotify(auth=token_info['access_token'])
+    sp = Spotify(auth=token_info['access_token'])
 
     if action == "add":
         sp.playlist_add_items(playlist_id, [track_uri])

@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { X } from "lucide-react";
 
 interface Track {
-  id: number;
+  id: string | number; // ← Fixed: Accept both string and number
   name: string;
   artist: string;
   albumCover: string;
@@ -11,7 +11,7 @@ interface Track {
 
 interface TrackCardProps {
   track: Track;
-  onRemove: (id: number) => void;
+  onRemove: (id: string | number) => void; // ← Fixed: Accept both types
 }
 
 export const TrackCard = ({ track, onRemove }: TrackCardProps) => {

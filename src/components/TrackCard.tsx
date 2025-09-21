@@ -1,9 +1,11 @@
+// src/components/TrackCard.tsx
+import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { X } from "lucide-react";
+import { X, Music } from "lucide-react";
 
 interface Track {
-  id: string | number; // ← Fixed: Accept both string and number
+  id: string;
   name: string;
   artist: string;
   albumCover: string;
@@ -11,29 +13,66 @@ interface Track {
 
 interface TrackCardProps {
   track: Track;
-  onRemove: (id: string | number) => void; // ← Fixed: Accept both types
+  onRemove: () => void;
 }
 
-export const TrackCard = ({ track, onRemove }: TrackCardProps) => {
+export const TrackCard: React.FC<TrackCardProps> = ({ track, onRemove }) => {
   return (
-    <Card className="group flex items-center gap-4 p-4 bg-card border-border hover:bg-track-hover transition-all duration-300">
-      <img 
-        src={track.albumCover} 
-        alt={`${track.name} album cover`}
-        className="w-16 h-16 rounded-lg object-cover shadow-md"
-      />
-      <div className="flex-1 min-w-0">
-        <h3 className="font-semibold text-foreground truncate">{track.name}</h3>
-        <p className="text-muted-foreground truncate">{track.artist}</p>
-      </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onRemove(track.id)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/20 hover:text-destructive"
-      >
-        <X className="w-4 h-4" />
-      </Button>
+    <Card className="bg-card border-border hover:bg-accent/50 transition-colors">
+      <CardContent className="p-4">
+        <div className="flex items-center space-x-4">
+          {/* Album Cover */}
+          <div className="flex-shrink-0">
+            {track.albumCover ? (
+              <img
+                src={track.albumCover}
+                alt={`${track.name} album cover`}
+                className="w-12 h-12 rounded object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = target.parentElement?.querySelector('.fallback-icon');
+                  if (fallback) {
+                    (fallback as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+            ) : (
+              <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                <Music className="w-6 h-6 text-muted-foreground" />
+              </div>
+            )}
+            {/* Fallback icon (hidden by default) */}
+            <div 
+              className="fallback-icon w-12 h-12 bg-muted rounded items-center justify-center absolute hidden"
+              style={{ display: 'none' }}
+            >
+              <Music className="w-6 h-6 text-muted-foreground" />
+            </div>
+          </div>
+
+          {/* Track Info */}
+          <div className="flex-grow min-w-0">
+            <h4 className="font-medium text-foreground truncate" title={track.name}>
+              {track.name}
+            </h4>
+            <p className="text-sm text-muted-foreground truncate" title={track.artist}>
+              {track.artist}
+            </p>
+          </div>
+
+          {/* Remove Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            className="flex-shrink-0 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+            title="Remove track"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
     </Card>
   );
 };

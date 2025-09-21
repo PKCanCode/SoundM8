@@ -672,6 +672,17 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+// Add this code to your main server file, before the app.listen() call.
+
+// This creates a route handler for GET requests to the root path ('/')
+app.get('/', (req, res) => {
+  // You can send a simple message
+  res.send('<h1>Hello, World! Your server is working.</h1>');
+
+  // Or, you could send an HTML file
+  // res.sendFile(__dirname + '/public/index.html'); 
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log('\n🚀 SoundM8 Backend Server');

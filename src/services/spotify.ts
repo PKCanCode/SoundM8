@@ -1,274 +1,311 @@
+// Frontend Spotify Service - Communicates with Backend API
 
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "f65ac553e6794032bcacd85ae7b5dd85";
-const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 interface SpotifyArtist {
   id: string;
   name: string;
-  images: { url: string; width: number; height: number }[];
-}
-
-interface SpotifySearchResponse {
-  artists: {
-    items: SpotifyArtist[];
-  };
+  image?: string;
+  followers?: number;
 }
 
 interface SpotifyTrack {
   id: string;
   name: string;
-  artists: { name: string }[];
+  artist: string;
+  artists: { id: string; name: string }[];
   album: {
-    images: { url: string }[];
+    name: string;
+    image: string;
   };
   uri: string;
+  preview_url?: string;
+  duration_ms: number;
+  popularity: number;
 }
 
-interface SpotifyRecommendationsResponse {
-  tracks: SpotifyTrack[];
+interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  description: string;
+  external_urls: {
+    spotify: string;
+  };
 }
 
-// Client-side token storage (in memory for security)
-let accessToken: string | null = null;
+interface User {
+  id: string;
+  display_name: string;
+  email: string;
+  images: { url: string }[];
+}
 
-export const getSpotifyAuthUrl = () => {
-  if (!SPOTIFY_CLIENT_ID) {
-    throw new Error('Spotify Client ID is not configured');
+// Session management
+let sessionId: string | null = null;
+
+/**
+ * Set session ID (called after successful login)
+ */
+export const setSession = (id: string) => {
+  sessionId = id;
+  localStorage.setItem('spotify_session', id);
+};
+
+/**
+ * Get current session ID
+ */
+export const getSession = (): string | null => {
+  if (!sessionId) {
+    sessionId = localStorage.getItem('spotify_session');
+  }
+  return sessionId;
+};
+
+/**
+ * Clear session (logout)
+ */
+export const clearSession = () => {
+  sessionId = null;
+  localStorage.removeItem('spotify_session');
+};
+
+/**
+ * Make authenticated API request
+ */
+const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+  const session = getSession();
+  if (!session) {
+    throw new Error('No session available');
   }
 
-  const scopes = [
-    'playlist-modify-public',
-    'playlist-modify-private',
-    'user-read-private',
-    'user-read-email'
-  ].join(' ');
+  const url = `${API_BASE}${endpoint}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${session}`,
+    ...options.headers,
+  };
 
-  const params = new URLSearchParams({
-    client_id: SPOTIFY_CLIENT_ID,
-    response_type: 'token',
-    redirect_uri: SPOTIFY_REDIRECT_URI,
-    scope: scopes,
-    show_dialog: 'true'
+  const response = await fetch(url, {
+    ...options,
+    headers,
   });
 
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
-};
-
-export const extractAccessTokenFromUrl = (): string | null => {
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const token = params.get('access_token');
-  
-  if (token) {
-    accessToken = token;
-    // Store in window object as backup
-    (window as any).spotifyAccessToken = token;
-    // Clean up the URL
-    window.history.replaceState({}, document.title, window.location.pathname);
-    return token;
+  if (response.status === 401) {
+    // Session expired
+    clearSession();
+    throw new Error('Session expired');
   }
-  
-  return null;
-};
-
-export const setAccessToken = (token: string) => {
-  accessToken = token;
-  (window as any).spotifyAccessToken = token;
-};
-
-export const getAccessToken = (): string | null => {
-  return accessToken || (window as any).spotifyAccessToken || null;
-};
-
-export const searchArtists = async (query: string): Promise<{ id: string; name: string; image?: string }[]> => {
-  const token = getAccessToken();
-  
-  if (!token) {
-    console.warn("No Spotify access token available");
-    // Return mock data for demo
-    return [
-      { id: query.toLowerCase().replace(/\s+/g, '-'), name: query, image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" }
-    ];
-  }
-
-  if (!query.trim()) {
-    return [];
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist&limit=10`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired
-        accessToken = null;
-        (window as any).spotifyAccessToken = null;
-        throw new Error('Access token expired');
-      }
-      throw new Error(`Spotify API error: ${response.status}`);
-    }
-
-    const data: SpotifySearchResponse = await response.json();
-    
-    return data.artists.items.map(artist => ({
-      id: artist.id,
-      name: artist.name,
-      image: artist.images[artist.images.length - 1]?.url // Get smallest image
-    }));
-  } catch (error) {
-    console.error("Error searching artists:", error);
-    // Return mock data as fallback
-    return [
-      { id: query.toLowerCase().replace(/\s+/g, '-'), name: query, image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" }
-    ];
-  }
-};
-
-export const getRecommendations = async (
-  genres: string[] = [],
-  artistIds: string[] = [],
-  limit: number = 20
-): Promise<SpotifyTrack[]> => {
-  const token = getAccessToken();
-  
-  if (!token) {
-    throw new Error("No access token available");
-  }
-
-  // Build query parameters
-  const params = new URLSearchParams({
-    limit: limit.toString(),
-  });
-
-  // Add seed genres (max 5)
-  if (genres.length > 0) {
-    const seedGenres = genres.slice(0, 5).map(g => g.toLowerCase().replace(/\s+/g, '-'));
-    params.append('seed_genres', seedGenres.join(','));
-  }
-
-  // Add seed artists (max 5)
-  if (artistIds.length > 0) {
-    params.append('seed_artists', artistIds.slice(0, 5).join(','));
-  }
-
-  // If no seeds provided, use popular genres
-  if (genres.length === 0 && artistIds.length === 0) {
-    params.set('seed_genres', 'pop,rock,electronic');
-  }
-
-  try {
-    const response = await fetch(
-      `https://api.spotify.com/v1/recommendations?${params.toString()}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        accessToken = null;
-        (window as any).spotifyAccessToken = null;
-        throw new Error('Access token expired');
-      }
-      throw new Error(`Spotify API error: ${response.status}`);
-    }
-
-    const data: SpotifyRecommendationsResponse = await response.json();
-    return data.tracks || [];
-  } catch (error) {
-    console.error("Error getting recommendations:", error);
-    throw error;
-  }
-};
-
-export const getUserProfile = async () => {
-  const token = getAccessToken();
-  
-  if (!token) {
-    throw new Error("No access token available");
-  }
-
-  const response = await fetch('https://api.spotify.com/v1/me', {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      accessToken = null;
-      (window as any).spotifyAccessToken = null;
-      throw new Error('Access token expired');
-    }
-    throw new Error(`Failed to get user profile: ${response.status}`);
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || `HTTP ${response.status}`);
   }
 
   return response.json();
 };
 
-export const createPlaylist = async (name: string, trackUris: string[]) => {
-  const token = getAccessToken();
-  
-  if (!token) {
-    throw new Error("No access token available");
-  }
-
+/**
+ * Initiate Spotify login
+ */
+export const initiateLogin = async (): Promise<string> => {
   try {
-    // Get user profile to get user ID
-    const userProfile = await getUserProfile();
+    const response = await fetch(`${API_BASE}/login`);
+    const data = await response.json();
     
-    // Create playlist
-    const playlistResponse = await fetch(`https://api.spotify.com/v1/users/${userProfile.id}/playlists`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name,
-        description: 'Playlist created with AI Playlist Generator',
-        public: false
-      })
-    });
-
-    if (!playlistResponse.ok) {
-      throw new Error(`Failed to create playlist: ${playlistResponse.status}`);
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to get auth URL');
     }
 
-    const playlist = await playlistResponse.json();
-
-    // Add tracks to playlist
-    if (trackUris.length > 0) {
-      const addTracksResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          uris: trackUris
-        })
-      });
-
-      if (!addTracksResponse.ok) {
-        throw new Error(`Failed to add tracks to playlist: ${addTracksResponse.status}`);
-      }
-    }
-
-    return playlist;
+    return data.authUrl;
   } catch (error) {
-    if (error instanceof Error && error.message === 'Access token expired') {
-      throw new Error('Your Spotify session has expired. Please log in again.');
-    }
+    console.error('Login initiation failed:', error);
     throw error;
   }
 };
+
+/**
+ * Check if user is authenticated
+ */
+export const isAuthenticated = (): boolean => {
+  return !!getSession();
+};
+
+/**
+ * Handle login callback (extract session from URL)
+ */
+export const handleCallback = (): { success: boolean; error?: string } => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const session = urlParams.get('session');
+  const success = urlParams.get('success');
+  const error = urlParams.get('error');
+
+  if (error) {
+    return { success: false, error };
+  }
+
+  if (success && session) {
+    setSession(session);
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return { success: true };
+  }
+
+  return { success: false, error: 'Invalid callback' };
+};
+
+/**
+ * Get user profile
+ */
+export const getUserProfile = async (): Promise<User> => {
+  return apiRequest('/user');
+};
+
+/**
+ * Search for artists
+ */
+export const searchArtists = async (query: string): Promise<SpotifyArtist[]> => {
+  if (!query.trim()) return [];
+
+  try {
+    const data = await apiRequest(`/search/artists?q=${encodeURIComponent(query)}&limit=10`);
+    return data.artists || [];
+  } catch (error) {
+    console.error('Artist search failed:', error);
+    return [];
+  }
+};
+
+/**
+ * Get recommendations
+ */
+export const getRecommendations = async (params: {
+  seed_genres?: string[];
+  seed_artists?: string[];
+  limit?: number;
+  target_danceability?: number;
+  target_energy?: number;
+  target_valence?: number;
+}): Promise<SpotifyTrack[]> => {
+  try {
+    const data = await apiRequest('/recommendations', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return data.tracks || [];
+  } catch (error) {
+    console.error('Get recommendations failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new playlist
+ */
+export const createPlaylist = async (
+  name: string,
+  description?: string
+): Promise<SpotifyPlaylist> => {
+  try {
+    const data = await apiRequest('/playlists', {
+      method: 'POST',
+      body: JSON.stringify({ name, description }),
+    });
+    return data.playlist;
+  } catch (error) {
+    console.error('Create playlist failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Add tracks to playlist
+ */
+export const addTracksToPlaylist = async (
+  playlistId: string,
+  trackUris: string[]
+): Promise<{ snapshot_id: string }> => {
+  try {
+    const data = await apiRequest(`/playlists/${playlistId}/tracks`, {
+      method: 'POST',
+      body: JSON.stringify({ uris: trackUris }),
+    });
+    return data;
+  } catch (error) {
+    console.error('Add tracks failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create playlist with tracks in one go
+ */
+export const createPlaylistWithTracks = async (
+  name: string,
+  trackUris: string[],
+  description?: string
+): Promise<SpotifyPlaylist> => {
+  try {
+    // Create playlist
+    const playlist = await createPlaylist(name, description);
+    
+    // Add tracks if provided
+    if (trackUris.length > 0) {
+      await addTracksToPlaylist(playlist.id, trackUris);
+    }
+    
+    return playlist;
+  } catch (error) {
+    console.error('Create playlist with tracks failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get available genres
+ */
+export const getAvailableGenres = async (): Promise<string[]> => {
+  try {
+    const data = await apiRequest('/genres');
+    return data.genres || [];
+  } catch (error) {
+    console.error('Get genres failed:', error);
+    return [];
+  }
+};
+
+/**
+ * Get user's top artists
+ */
+export const getTopArtists = async (
+  timeRange: 'short_term' | 'medium_term' | 'long_term' = 'medium_term',
+  limit = 20
+): Promise<SpotifyArtist[]> => {
+  try {
+    const data = await apiRequest(`/user/top/artists?time_range=${timeRange}&limit=${limit}`);
+    return data.artists || [];
+  } catch (error) {
+    console.error('Get top artists failed:', error);
+    return [];
+  }
+};
+
+/**
+ * Logout user
+ */
+export const logout = async (): Promise<void> => {
+  try {
+    if (getSession()) {
+      await apiRequest('/logout', { method: 'POST' });
+    }
+  } catch (error) {
+    console.error('Logout failed:', error);
+  } finally {
+    clearSession();
+  }
+};
+
+// Legacy functions for backward compatibility
+export const getSpotifyAuthUrl = initiateLogin;
+export const extractAccessTokenFromUrl = handleCallback;
+export const getAccessToken = () => getSession();
+export const setAccessToken = setSession;

@@ -1,4 +1,37 @@
-return (
+import { Button } from "@/components/ui/button";
+import { SpotifyButton } from "@/components/SpotifyButton";
+import { ArrowLeft, Music2, Shuffle, Radio } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { getSpotifyAuthUrl, extractAccessTokenFromUrl } from "@/services/spotify";
+import { useEffect } from "react";
+
+const Login = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if we're returning from Spotify auth
+    const token = extractAccessTokenFromUrl();
+    if (token) {
+      navigate("/playlist-builder");
+    }
+  }, [navigate]);
+
+  const handleLogin = () => {
+    try {
+      const authUrl = getSpotifyAuthUrl();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Failed to get Spotify auth URL:", error);
+      // Fallback: navigate to playlist builder for demo
+      navigate("/playlist-builder");
+    }
+  };
+
+  const handleGoBack = () => {
+    navigate("/");
+  };
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-card flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center space-y-8">
         {/* Back Button */}

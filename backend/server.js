@@ -23,6 +23,7 @@ const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI || 'http://localhost:5000/api/callback';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+// Corrected Spotify API Base URLs
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const SPOTIFY_AUTH_BASE = 'https://accounts.spotify.com';
 

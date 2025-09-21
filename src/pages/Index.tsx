@@ -63,10 +63,10 @@ const Index = () => {
           {/* Main Heading */}
           <div className="space-y-4">
             <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-              AI Playlist Generator
+              SoundM8
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
-              Discover your next favorite songs with the power of artificial intelligence and Spotify's vast music library
+              Discover your next favorite songs with the power of advanced algorithms and Spotify's vast music library
             </p>
           </div>
 

@@ -3,39 +3,43 @@ import { useNavigate } from "react-router-dom";
 import { Music2, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getAccessToken, extractAccessTokenFromUrl } from "@/services/spotify";
+import { isAuthenticated, handleCallback } from "@/services/spotify";
 
 const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is returning from Spotify OAuth
-    const token = extractAccessTokenFromUrl();
-    if (token || getAccessToken()) {
+    // Check if user is returning from Spotify OAuth callback
+    const callbackResult = handleCallback();
+    if (callbackResult.success || isAuthenticated()) {
       // Redirect to playlist builder if authenticated
       navigate("/playlist");
     }
   }, [navigate]);
 
   const handleGetStarted = () => {
-    navigate("/login");
+    if (isAuthenticated()) {
+      navigate("/playlist");
+    } else {
+      navigate("/login");
+    }
   };
 
   const features = [
     {
       icon: <Music2 className="w-8 h-8 text-spotify-green" />,
       title: "Smart Discovery",
-      description: "Find new music based on your favorite genres and artists"
+      description: "Find new music based on your favorite genres and artists using Spotify's recommendation engine"
     },
     {
       icon: <Sparkles className="w-8 h-8 text-spotify-green" />,
       title: "AI-Powered",
-      description: "Advanced algorithms create personalized playlists just for you"
+      description: "Advanced algorithms analyze your music taste to create personalized playlists just for you"
     },
     {
       icon: <ArrowRight className="w-8 h-8 text-spotify-green" />,
       title: "Instant Sync",
-      description: "Save directly to your Spotify account with one click"
+      description: "Save directly to your Spotify account with one click - no manual copying required"
     }
   ];
 
@@ -96,7 +100,7 @@ const Index = () => {
           {/* Bottom Text */}
           <div className="pt-8">
             <p className="text-sm text-muted-foreground">
-              Powered by Spotify • Create unlimited playlists • Discover new music
+              Powered by Spotify Web API • Real music recommendations • Secure OAuth authentication
             </p>
           </div>
         </div>

@@ -330,7 +330,7 @@ app.get('/api/search/artists', requireAuth, async (req, res) => {
 });
 
 /**
- * Get recommendations
+ * Get recommendations - COMPLETED VERSION
  */
 app.post('/api/recommendations', requireAuth, async (req, res) => {
   const { 
@@ -400,3 +400,292 @@ app.post('/api/recommendations', requireAuth, async (req, res) => {
     }));
 
     console.log(`✅ Got ${tracks.length} recommendations`);
+    res.json({ tracks });
+  } catch (error) {
+    console.error('❌ Get recommendations error:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: 'Failed to get recommendations' 
+    });
+  }
+});
+
+/**
+ * Create playlist - MISSING FROM YOUR FILE!
+ */
+app.post('/api/playlists', requireAuth, async (req, res) => {
+  const { name, description = 'Created with SoundM8', public = false } = req.body;
+
+  if (!name || name.trim() === '') {
+    console.error('❌ No playlist name provided');
+    return res.status(400).json({ error: 'Playlist name is required' });
+  }
+
+  try {
+    console.log('📝 Creating playlist:', name);
+
+    // Get user ID first
+    const userResponse = await axios.get(`${SPOTIFY_API_BASE}/me`, {
+      headers: { 'Authorization': `Bearer ${req.accessToken}` }
+    });
+
+    const userId = userResponse.data.id;
+    console.log('👤 User ID:', userId);
+
+    // Create playlist
+    const playlistResponse = await axios.post(
+      `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+      {
+        name: name.trim(),
+        description,
+        public
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${req.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const playlist = {
+      id: playlistResponse.data.id,
+      name: playlistResponse.data.name,
+      description: playlistResponse.data.description,
+      external_urls: playlistResponse.data.external_urls,
+      tracks: playlistResponse.data.tracks
+    };
+
+    console.log(`✅ Created playlist: ${playlist.id}`);
+    res.json({ playlist });
+  } catch (error) {
+    console.error('❌ Create playlist error:', error.response?.data || error.message);
+    if (error.response?.status === 403) {
+      res.status(403).json({ 
+        error: 'Permission denied. Make sure your Spotify app has playlist modification permissions.' 
+      });
+    } else {
+      res.status(error.response?.status || 500).json({ 
+        error: 'Failed to create playlist' 
+      });
+    }
+  }
+});
+
+/**
+ * Add tracks to playlist - MISSING FROM YOUR FILE!
+ */
+app.post('/api/playlists/:playlistId/tracks', requireAuth, async (req, res) => {
+  const { playlistId } = req.params;
+  const { uris } = req.body;
+
+  console.log(`🎵 Adding tracks to playlist ${playlistId}:`, uris?.length || 0);
+
+  if (!uris || !Array.isArray(uris) || uris.length === 0) {
+    console.error('❌ No track URIs provided');
+    return res.status(400).json({ error: 'Track URIs are required' });
+  }
+
+  // Validate and filter URIs
+  const validUris = uris.filter(uri => {
+    if (!uri || typeof uri !== 'string') {
+      console.warn('⚠️ Invalid URI type:', typeof uri);
+      return false;
+    }
+    if (!uri.startsWith('spotify:track:')) {
+      console.warn('⚠️ Invalid URI format:', uri);
+      return false;
+    }
+    return true;
+  });
+
+  if (validUris.length === 0) {
+    console.error('❌ No valid Spotify track URIs');
+    return res.status(400).json({ error: 'No valid Spotify track URIs provided' });
+  }
+
+  if (validUris.length !== uris.length) {
+    console.warn(`⚠️ Filtered out ${uris.length - validUris.length} invalid URIs`);
+  }
+
+  try {
+    console.log(`📡 Spotify API: Adding ${validUris.length} tracks`);
+
+    const response = await axios.post(
+      `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+      { uris: validUris.slice(0, 100) }, // Spotify limit
+      {
+        headers: {
+          'Authorization': `Bearer ${req.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log(`✅ Successfully added tracks to playlist`);
+    res.json({ 
+      snapshot_id: response.data.snapshot_id, 
+      added_tracks: validUris.length 
+    });
+  } catch (error) {
+    console.error('❌ Add tracks error:', error.response?.data || error.message);
+    if (error.response?.status === 404) {
+      res.status(404).json({ error: 'Playlist not found' });
+    } else if (error.response?.status === 403) {
+      res.status(403).json({ error: 'Permission denied. You may not own this playlist.' });
+    } else {
+      res.status(error.response?.status || 500).json({ 
+        error: 'Failed to add tracks to playlist' 
+      });
+    }
+  }
+});
+
+/**
+ * Get available genres
+ */
+app.get('/api/genres', requireAuth, async (req, res) => {
+  try {
+    console.log('🎭 Getting available genres...');
+    const response = await axios.get(`${SPOTIFY_API_BASE}/recommendations/available-genre-seeds`, {
+      headers: { 'Authorization': `Bearer ${req.accessToken}` }
+    });
+
+    console.log(`✅ Retrieved ${response.data.genres.length} genres`);
+    res.json({ genres: response.data.genres });
+  } catch (error) {
+    console.error('❌ Get genres error:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: 'Failed to get available genres' 
+    });
+  }
+});
+
+/**
+ * Get user's top artists
+ */
+app.get('/api/user/top/artists', requireAuth, async (req, res) => {
+  const { limit = 20, time_range = 'medium_term' } = req.query;
+
+  const validTimeRanges = ['short_term', 'medium_term', 'long_term'];
+  if (!validTimeRanges.includes(time_range)) {
+    return res.status(400).json({ error: 'Invalid time_range parameter' });
+  }
+
+  try {
+    console.log(`👥 Getting top artists (${time_range}, limit: ${limit})`);
+    const response = await axios.get(`${SPOTIFY_API_BASE}/me/top/artists`, {
+      headers: { 'Authorization': `Bearer ${req.accessToken}` },
+      params: {
+        limit: Math.min(parseInt(limit), 50),
+        time_range
+      }
+    });
+
+    const artists = response.data.items.map(artist => ({
+      id: artist.id,
+      name: artist.name,
+      image: artist.images?.[artist.images.length - 1]?.url,
+      genres: artist.genres,
+      popularity: artist.popularity
+    }));
+
+    console.log(`✅ Retrieved ${artists.length} top artists`);
+    res.json({ artists });
+  } catch (error) {
+    console.error('❌ Get top artists error:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: 'Failed to get top artists' 
+    });
+  }
+});
+
+/**
+ * Logout - clear session
+ */
+app.post('/api/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const sessionId = authHeader?.replace('Bearer ', '');
+  
+  if (sessionId && userSessions.has(sessionId)) {
+    userSessions.delete(sessionId);
+    console.log(`👋 Session ${sessionId.substring(0, 8)}... deleted`);
+  }
+  
+  res.json({ message: 'Logged out successfully' });
+});
+
+/**
+ * Health check with detailed info
+ */
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    activeSessions: userSessions.size,
+    spotify: {
+      clientId: SPOTIFY_CLIENT_ID ? 'Configured' : 'Missing',
+      clientSecret: SPOTIFY_CLIENT_SECRET ? 'Configured' : 'Missing',
+      redirectUri: REDIRECT_URI,
+      apiBase: SPOTIFY_API_BASE
+    },
+    server: {
+      port: PORT,
+      nodeEnv: process.env.NODE_ENV || 'development'
+    }
+  });
+});
+
+/**
+ * Session debug endpoint
+ */
+app.get('/api/session', requireAuth, (req, res) => {
+  const session = userSessions.get(req.sessionId);
+  res.json({
+    sessionId: req.sessionId.substring(0, 8) + '...',
+    expiresAt: new Date(session.expiresAt).toISOString(),
+    timeUntilExpiry: Math.round((session.expiresAt - Date.now()) / 1000),
+    hasRefreshToken: !!session.refreshToken,
+    totalSessions: userSessions.size
+  });
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('❌ Unhandled error:', error);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  console.log('❌ 404 - Endpoint not found:', req.method, req.originalUrl);
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('👋 Received SIGTERM, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n👋 Received SIGINT, shutting down gracefully');
+  process.exit(0);
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log('\n🚀 SoundM8 Backend Server');
+  console.log('='.repeat(50));
+  console.log(`📍 Server: http://localhost:${PORT}`);
+  console.log(`📊 Health: http://localhost:${PORT}/api/health`);
+  console.log(`🎵 Spotify Client ID: ${SPOTIFY_CLIENT_ID ? '✅' : '❌'}`);
+  console.log(`🔒 Client Secret: ${SPOTIFY_CLIENT_SECRET ? '✅' : '❌'}`);
+  console.log(`🔄 Redirect URI: ${REDIRECT_URI}`);
+  console.log(`🌐 Frontend URL: ${CLIENT_URL}`);
+  console.log('='.repeat(50));
+  console.log('💡 Make sure your Spotify app redirect URI matches exactly!');
+  console.log('💡 Frontend should be running on:', CLIENT_URL);
+  console.log('\n✅ Server ready for connections');
+});
+
+module.exports = app;

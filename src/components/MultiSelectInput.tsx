@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from "react";
-import { X, ChevronDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+// src/components/MultiSelectInput.tsx
+import React, { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { X, Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Option {
@@ -13,164 +16,222 @@ interface Option {
 interface MultiSelectInputProps {
   value: Option[];
   onChange: (value: Option[]) => void;
+  options?: Option[];
   onSearch?: (query: string) => Promise<Option[]>;
   placeholder?: string;
-  options?: Option[];
-  className?: string;
+  maxItems?: number;
 }
 
-export const MultiSelectInput = ({ 
-  value, 
-  onChange, 
-  onSearch, 
-  placeholder = "Type to search...",
+export const MultiSelectInput: React.FC<MultiSelectInputProps> = ({
+  value,
+  onChange,
   options = [],
-  className 
-}: MultiSelectInputProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  onSearch,
+  placeholder = "Type to search...",
+  maxItems = 5
+}) => {
+  const [inputValue, setInputValue] = useState("");
   const [searchResults, setSearchResults] = useState<Option[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Filter available options based on static options or search results
+  const availableOptions = onSearch ? searchResults : options.filter(option =>
+    option.name.toLowerCase().includes(inputValue.toLowerCase()) &&
+    !value.some(selected => selected.id === option.id)
+  );
+
+  // Handle search with debouncing
+  useEffect(() => {
+    if (!onSearch || inputValue.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const results = await onSearch(inputValue);
+        setSearchResults(results.filter(result => 
+          !value.some(selected => selected.id === result.id)
+        ));
+      } catch (error) {
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [inputValue, onSearch, value]);
+
+  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setSearchQuery("");
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const searchOptions = async () => {
-      if (!searchQuery.trim()) {
-        setSearchResults(options);
-        return;
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        setIsOpen(true);
+        e.preventDefault();
       }
+      return;
+    }
 
-      if (onSearch) {
-        setIsLoading(true);
-        try {
-          const results = await onSearch(searchQuery);
-          setSearchResults(results);
-        } catch (error) {
-          console.error("Search failed:", error);
-          setSearchResults([]);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        const filtered = options.filter(option =>
-          option.name.toLowerCase().includes(searchQuery.toLowerCase())
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev < availableOptions.length - 1 ? prev + 1 : prev
         );
-        setSearchResults(filtered);
-      }
-    };
-
-    const debounceTimer = setTimeout(searchOptions, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery, onSearch, options]);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightedIndex(prev => prev > 0 ? prev - 1 : prev);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (highlightedIndex >= 0 && availableOptions[highlightedIndex]) {
+          handleSelect(availableOptions[highlightedIndex]);
+        }
+        break;
+      case 'Escape':
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+  };
 
   const handleSelect = (option: Option) => {
-    if (!value.find(v => v.id === option.id)) {
+    if (value.length < maxItems) {
       onChange([...value, option]);
+      setInputValue("");
+      setSearchResults([]);
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+      inputRef.current?.focus();
     }
-    setSearchQuery("");
-    setIsOpen(false);
-    inputRef.current?.focus();
   };
 
   const handleRemove = (optionId: string) => {
-    onChange(value.filter(v => v.id !== optionId));
+    onChange(value.filter(item => item.id !== optionId));
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && searchQuery.trim() && !onSearch) {
-      // For genre input without API search
-      const newOption: Option = {
-        id: searchQuery.toLowerCase(),
-        name: searchQuery.trim()
-      };
-      if (!value.find(v => v.id === newOption.id)) {
-        onChange([...value, newOption]);
-      }
-      setSearchQuery("");
-      e.preventDefault();
-    } else if (e.key === "Backspace" && !searchQuery && value.length > 0) {
-      onChange(value.slice(0, -1));
-    }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    setIsOpen(newValue.length > 0);
+    setHighlightedIndex(-1);
   };
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      <div className="flex flex-wrap gap-2 p-2 border border-border rounded-md bg-background min-h-[40px] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-        {value.map((option) => (
-          <Badge key={option.id} variant="secondary" className="flex items-center gap-1">
-            {option.image && (
-              <img src={option.image} alt="" className="w-4 h-4 rounded-full" />
-            )}
-            {option.name}
-            <button
-              onClick={() => handleRemove(option.id)}
-              className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
+    <div ref={containerRef} className="relative w-full">
+      {/* Selected Items */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {value.map((item) => (
+            <Badge
+              key={item.id}
+              variant="secondary"
+              className="flex items-center gap-1 pr-1"
             >
-              <X className="w-3 h-3" />
-            </button>
-          </Badge>
-        ))}
-        <Input
-          ref={inputRef}
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? placeholder : ""}
-          className="border-0 flex-1 min-w-[120px] p-0 h-auto bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-        />
-        <ChevronDown 
-          className="w-4 h-4 text-muted-foreground self-center cursor-pointer" 
-          onClick={() => {
-            setIsOpen(!isOpen);
-            inputRef.current?.focus();
-          }}
-        />
-      </div>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-auto bg-popover border border-border rounded-md shadow-lg">
-          {isLoading ? (
-            <div className="p-3 text-sm text-muted-foreground">Searching...</div>
-          ) : searchResults.length > 0 ? (
-            searchResults.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => handleSelect(option)}
-                className="w-full text-left p-3 hover:bg-accent hover:text-accent-foreground flex items-center gap-3 text-sm"
-                disabled={value.some(v => v.id === option.id)}
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+              )}
+              <span>{item.name}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemove(item.id)}
+                className="h-4 w-4 p-0 hover:bg-destructive/20"
               >
-                {option.image && (
-                  <img src={option.image} alt="" className="w-8 h-8 rounded-full" />
-                )}
-                <span className={value.some(v => v.id === option.id) ? "opacity-50" : ""}>
-                  {option.name}
-                </span>
-              </button>
-            ))
-          ) : (
-            <div className="p-3 text-sm text-muted-foreground">
-              {searchQuery ? "No results found" : "Start typing to search"}
-            </div>
-          )}
+                <X className="w-3 h-3" />
+              </Button>
+            </Badge>
+          ))}
         </div>
       )}
+
+      {/* Input */}
+      <div className="relative">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => inputValue.length > 0 && setIsOpen(true)}
+            placeholder={value.length >= maxItems ? `Maximum ${maxItems} items selected` : placeholder}
+            className="pl-10 pr-10"
+            disabled={value.length >= maxItems}
+          />
+          {isSearching && (
+            <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 animate-spin" />
+          )}
+        </div>
+      </div>
+
+      {/* Dropdown */}
+      {isOpen && availableOptions.length > 0 && (
+        <Card className="absolute z-50 w-full mt-1 border shadow-lg">
+          <CardContent className="p-0 max-h-60 overflow-y-auto">
+            {availableOptions.map((option, index) => (
+              <div
+                key={option.id}
+                onClick={() => handleSelect(option)}
+                className={cn(
+                  "flex items-center space-x-3 p-3 cursor-pointer border-b border-border last:border-b-0 hover:bg-accent",
+                  index === highlightedIndex && "bg-accent"
+                )}
+                onMouseEnter={() => setHighlightedIndex(index)}
+              >
+                {option.image && (
+                  <img
+                    src={option.image}
+                    alt={option.name}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                )}
+                <span className="text-sm font-medium">{option.name}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No results message */}
+      {isOpen && !isSearching && inputValue.length > 0 && availableOptions.length === 0 && (
+        <Card className="absolute z-50 w-full mt-1 border shadow-lg">
+          <CardContent className="p-4 text-center text-muted-foreground text-sm">
+            {onSearch ? 'No results found' : 'No matching options'}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Helper text */}
+      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+        <span>{value.length} / {maxItems} selected</span>
+        {onSearch && <span>Type to search</span>}
+      </div>
     </div>
   );
 };

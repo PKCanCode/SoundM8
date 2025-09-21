@@ -33,8 +33,8 @@ const Index = () => {
     },
     {
       icon: <Sparkles className="w-8 h-8 text-spotify-green" />,
-      title: "AI-Powered",
-      description: "Advanced algorithms analyze your music taste to create personalized playlists just for you"
+      title: "You-Powered",
+      description: "Advanced algorithms analyze YOUR music taste to create personalized playlists just for YOU"
     },
     {
       icon: <ArrowRight className="w-8 h-8 text-spotify-green" />,

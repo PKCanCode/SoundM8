@@ -210,10 +210,10 @@ const PlaylistBuilder = () => {
         ? selectedArtists.map(a => a.name).join(', ')
         : '';
 
-      const playlistName = `AI Playlist - ${genreList}`;
+      const playlistName = `Your Playlist - ${genreList}`;
       const description = `Generated playlist with ${tracks.length} tracks. ` + 
                          (artistList ? `Based on: ${artistList}. ` : '') +
-                         `Created with AI Playlist Generator.`;
+                         `Created with SoundM8.`;
 
       const trackUris = tracks.map(track => track.uri);
 

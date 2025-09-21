@@ -2,29 +2,13 @@ import { Button } from "@/components/ui/button";
 import { SpotifyButton } from "@/components/SpotifyButton";
 import { ArrowLeft, Music2, Shuffle, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getSpotifyAuthUrl, extractAccessTokenFromUrl } from "@/services/spotify";
-import { useEffect } from "react";
 
 const Login = () => {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check if we're returning from Spotify auth
-    const token = extractAccessTokenFromUrl();
-    if (token) {
-      navigate("/playlist-builder");
-    }
-  }, [navigate]);
-
   const handleLogin = () => {
-    try {
-      const authUrl = getSpotifyAuthUrl();
-      window.location.href = authUrl;
-    } catch (error) {
-      console.error("Failed to get Spotify auth URL:", error);
-      // Fallback: navigate to playlist builder for demo
-      navigate("/playlist-builder");
-    }
+    // Mock login - just navigate to playlist builder
+    navigate("/playlist-builder");
   };
 
   const handleGoBack = () => {
@@ -95,16 +79,16 @@ const Login = () => {
           
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              We'll redirect you to Spotify to authorize access
+              Demo Mode - No actual Spotify connection required
             </p>
             
             {/* Privacy Notice */}
             <div className="bg-card/50 border border-border/50 rounded-lg p-4 text-left">
-              <h4 className="text-sm font-medium mb-2">What we'll access:</h4>
+              <h4 className="text-sm font-medium mb-2">Demo features:</h4>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• View your profile information</li>
-                <li>• Create and modify your playlists</li>
-                <li>• Access your music library for recommendations</li>
+                <li>• Browse mock playlist generation</li>
+                <li>• Test UI with sample data</li>
+                <li>• Experience the full interface</li>
               </ul>
             </div>
           </div>
@@ -113,7 +97,7 @@ const Login = () => {
         {/* Footer */}
         <div className="pt-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground">
-            By connecting, you agree to Spotify's terms of service
+            Front-end demo version
           </p>
         </div>
       </div>

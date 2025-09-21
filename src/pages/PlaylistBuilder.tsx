@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -9,20 +9,17 @@ import { TrackCard } from "@/components/TrackCard";
 import { MultiSelectInput } from "@/components/MultiSelectInput";
 import { useToast } from "@/hooks/use-toast";
 import { Music, Sparkles, Save, LogOut, Home } from "lucide-react";
-import { 
-  searchArtists, 
-  extractAccessTokenFromUrl, 
-  getAccessToken, 
-  createPlaylist 
-} from "@/services/spotify";
 
-// Mock data for demonstration when no Spotify connection
+// Mock data for demonstration
 const mockTracks = [
   { id: "1", name: "Anti-Hero", artist: "Taylor Swift", albumCover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop", uri: "spotify:track:mock1" },
   { id: "2", name: "As It Was", artist: "Harry Styles", albumCover: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=300&fit=crop", uri: "spotify:track:mock2" },
   { id: "3", name: "Heat Waves", artist: "Glass Animals", albumCover: "https://images.unsplash.com/photo-1567027634722-536544fd1e19?w=300&h=300&fit=crop", uri: "spotify:track:mock3" },
   { id: "4", name: "Blinding Lights", artist: "The Weeknd", albumCover: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=300&h=300&fit=crop", uri: "spotify:track:mock4" },
   { id: "5", name: "Levitating", artist: "Dua Lipa", albumCover: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=300&h=300&fit=crop", uri: "spotify:track:mock5" },
+  { id: "6", name: "Good 4 U", artist: "Olivia Rodrigo", albumCover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop", uri: "spotify:track:mock6" },
+  { id: "7", name: "Stay", artist: "The Kid LAROI & Justin Bieber", albumCover: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=300&h=300&fit=crop", uri: "spotify:track:mock7" },
+  { id: "8", name: "Watermelon Sugar", artist: "Harry Styles", albumCover: "https://images.unsplash.com/photo-1567027634722-536544fd1e19?w=300&h=300&fit=crop", uri: "spotify:track:mock8" },
 ];
 
 interface Track {
@@ -64,39 +61,27 @@ const PlaylistBuilder = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check for access token in URL on component mount
-    const token = extractAccessTokenFromUrl();
-    if (token || getAccessToken()) {
-      setIsConnected(true);
-      if (token) {
-        toast({
-          title: "Connected to Spotify!",
-          description: "You can now search for artists and save playlists.",
-        });
-      }
-    } else {
-      // Redirect to login if no token
-      navigate("/login");
-    }
-  }, [toast, navigate]);
-
   const handleArtistSearch = async (query: string) => {
-    try {
-      return await searchArtists(query);
-    } catch (error) {
-      console.error('Error searching artists:', error);
-      toast({
-        title: "Search failed",
-        description: "Unable to search artists. Please check your connection to Spotify.",
-        variant: "destructive",
-      });
-      return [];
-    }
+    // Mock artist search with popular artists
+    const mockArtists = [
+      { id: "drake", name: "Drake", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "taylor-swift", name: "Taylor Swift", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "the-weeknd", name: "The Weeknd", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "billie-eilish", name: "Billie Eilish", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "bad-bunny", name: "Bad Bunny", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "ariana-grande", name: "Ariana Grande", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "post-malone", name: "Post Malone", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "dua-lipa", name: "Dua Lipa", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "harry-styles", name: "Harry Styles", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" },
+      { id: "olivia-rodrigo", name: "Olivia Rodrigo", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=64&h=64&fit=crop" }
+    ];
+
+    return mockArtists.filter(artist => 
+      artist.name.toLowerCase().includes(query.toLowerCase())
+    );
   };
 
   const generateMockRecommendations = (length: number): Track[] => {
@@ -107,45 +92,20 @@ const PlaylistBuilder = () => {
   const fetchRecommendations = async () => {
     setIsGenerating(true);
     
-    try {
-      console.log("Fetching recommendations:", { 
-        genres: selectedGenres.map(g => g.name), 
-        artists: selectedArtists.map(a => a.name), 
-        playlistLength: playlistLength[0] 
-      });
-
-      // For demo purposes, we'll use mock data
-      // In a real app, you'd call Spotify's recommendations API here
+    // Simulate API delay
+    setTimeout(() => {
       const recommendations = generateMockRecommendations(playlistLength[0]);
-      
       setTracks(recommendations);
+      setIsGenerating(false);
       
       toast({
         title: "Songs generated!",
-        description: `Found ${recommendations.length} perfect tracks for you.`,
+        description: `Generated ${recommendations.length} tracks based on your preferences.`,
       });
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
-      toast({
-        title: "Generation failed",
-        description: "Unable to generate recommendations. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+    }, 1500);
   };
 
   const savePlaylist = async () => {
-    if (!getAccessToken()) {
-      toast({
-        title: "Not connected to Spotify",
-        description: "Please connect to Spotify first to save playlists.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (tracks.length === 0) {
       toast({
         title: "No tracks to save",
@@ -157,31 +117,15 @@ const PlaylistBuilder = () => {
 
     setIsSaving(true);
 
-    try {
-      const genreList = selectedGenres.length > 0 
-        ? selectedGenres.map(g => g.name).join(', ')
-        : 'Various';
-      
-      const playlistName = `AI Generated Playlist - ${genreList}`;
-      const trackUris = tracks.map(track => track.uri);
-
-      await createPlaylist(playlistName, trackUris);
-      
+    // Mock save functionality
+    setTimeout(() => {
+      setIsSaving(false);
       toast({
         title: "Playlist saved!",
-        description: "Your playlist has been saved to Spotify.",
+        description: "Your playlist would be saved to Spotify (demo mode)",
         duration: 5000,
       });
-    } catch (error) {
-      console.error("Error saving playlist:", error);
-      toast({
-        title: "Error saving playlist",
-        description: "There was an error saving your playlist. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    }, 1000);
   };
 
   const removeTrack = (id: string) => {
@@ -189,12 +133,10 @@ const PlaylistBuilder = () => {
   };
 
   const handleLogout = () => {
-    // Clear token and redirect
-    (window as any).spotifyAccessToken = null;
     navigate("/");
     toast({
       title: "Logged out",
-      description: "You've been successfully logged out of Spotify.",
+      description: "Returned to home page.",
     });
   };
 
@@ -238,14 +180,12 @@ const PlaylistBuilder = () => {
           </Button>
         </div>
 
-        {/* Connection Status */}
-        {isConnected && (
-          <div className="bg-spotify-green/10 border border-spotify-green/20 rounded-lg p-3 text-center">
-            <p className="text-sm text-spotify-green font-medium">
-              ✅ Connected to Spotify - Ready to create playlists!
-            </p>
-          </div>
-        )}
+        {/* Demo Notice */}
+        <div className="bg-spotify-green/10 border border-spotify-green/20 rounded-lg p-3 text-center">
+          <p className="text-sm text-spotify-green font-medium">
+            🎵 Demo Mode - Using mock data for playlist generation
+          </p>
+        </div>
 
         {/* Form */}
         <Card className="bg-card border-border">
@@ -327,7 +267,7 @@ const PlaylistBuilder = () => {
                   onClick={savePlaylist}
                   variant="outline"
                   className="px-6"
-                  disabled={isSaving || !isConnected}
+                  disabled={isSaving}
                 >
                   <Save className="w-4 h-4 mr-2" />
                   {isSaving ? "Saving..." : "Save to Spotify"}
